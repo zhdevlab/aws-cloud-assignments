@@ -25,7 +25,7 @@ Think of the ALB as a receptionist at the front desk: visitors only ever talk to
 Using the ALB's security group as the source (instead of an IP range) means the servers only accept traffic that came through the load balancer.
 
 ![Security groups](./screenshots/01-security-groups-alb.png)
-![Security groups](./screenshot/01-security-groups-ec2.png)
+![Security groups](./screenshots/01-security-groups-ec2.png)
 
 ### 2. EC2 instances
 Launched two instances in the same VPC but in different Availability Zones, so one AZ failing doesn't take the site down. A user-data script installs the web server and sets a different page for each instance.
