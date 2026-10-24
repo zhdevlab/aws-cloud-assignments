@@ -60,3 +60,46 @@ I initially created the alb but it was not reachable. I had to retrace my steps 
 ## Clean-up and cost
 
 Both NAT and ALB have been deleted to stop charge.
+
+
+-------------------------------------------------------------------------
+
+## Bonus: custom domain, HTTPS and Auto Scaling
+
+Went beyond the brief to make the setup closer to production: a custom domain with HTTPS, an ALB that only accepts traffic from Cloudflare, and an Auto Scaling Group.
+
+```
+User - Cloudflare (zakhassandev.com) - ALB (HTTPS 443) - Auto Scaling Group instances
+```
+
+### 1. Custom domain
+My domain is managed in Cloudflare rather than Route 53, so I pointed a CNAME record (`@`) at the ALB's DNS name.
+
+### 2. Lock the ALB down to Cloudflare only
+Created a managed prefix list containing Cloudflare's official IPv4 ranges and used it as the source on the ALB security group for HTTP (80) and HTTPS (443). The previous open rules were removed, so nobody can bypass Cloudflare and hit the ALB directly.
+
+![Prefix list and ALB security group rules](./screenshots/07-prefix-list-alb-sg.png)
+
+### 3. HTTPS with ACM
+The domain timed out at first because the ALB had no HTTPS listener. I requested a certificate for `zakhassandev.com` in AWS Certificate Manager, added an HTTPS (443) listener forwarding to the target group, and attached the certificate.
+
+![ACM certificate issued](./screenshots/08-acm-certificate-issued.png)
+![HTTPS listener on the ALB](./screenshots/09-https-listener.png)
+
+### 4. End-to-end encryption
+Set Cloudflare SSL/TLS mode to **Full (strict)**, so traffic is encrypted all the way to the ALB and the certificate is validated.
+
+![Cloudflare SSL/TLS Full strict](./screenshots/10-cloudflare-full-strict.png)
+![Site live over HTTPS](./screenshots/11-https-live.png)
+
+### 5. Auto Scaling Group
+- Built an AMI from my configured web server (`aws-asg-launchimage`) so new instances start ready to serve
+- Created a launch template (`aws-asg-template`) and a dedicated security group (`aws-asg`)
+- Attached the ASG to the existing ALB target group with ELB health checks enabled, across multiple Availability Zone, this only accepts http only from the alb;s security group
+- Set min/max capacity (max 5) and a target tracking policy that scales out at 85% CPU
+
+![Auto Scaling Group details](./screenshots/12-asg-details.png)
+![Scaling policy](./screenshots/13-asg-scaling-policy.png)
+![ASG instances healthy in the target group](./screenshots/14-asg-targets-healthy.png)
+
+**Result:** the site is served over HTTPS on my own domain, only reachable through Cloudflare, and scales between TODO-min and 5 instances based on load.
